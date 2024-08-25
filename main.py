@@ -62,7 +62,7 @@ def main():
     st.markdown("<h1>Growing Prospects Metrics Dashboard</h1>", unsafe_allow_html=True)
 
     # Initialize services and load data
-    sheets_service = GoogleSheetsService(CREDENTIALS_FILE)
+    sheets_service = GoogleSheetsService()
     dfs = {sheet_name: DataProcessor.create_dataframe(sheets_service.read_sheet(SHEET_ID, sheet_name)) 
            for sheet_name in SHEET_NAMES}
 
