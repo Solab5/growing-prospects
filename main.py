@@ -156,8 +156,8 @@ def main():
     st.markdown(
         f"""
         <div style="background-color: #f0f0f0; padding: 20px; border-radius: 10px; text-align: center;">
-            <h3 style="margin-bottom: 10px;">{current_metric['label']}</h3>
-            <p style="font-size: 24px; font-weight: bold;">{current_metric['value']}</p>
+            <h3 style="margin-bottom: 10px; color: black;">{current_metric['label']}</h3>
+            <p style="font-size: 24px; font-weight: bold; color: black;">{current_metric['value']}</p>
         </div>
         """,
         unsafe_allow_html=True
