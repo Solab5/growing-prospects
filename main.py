@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import plotly.express as px
 import plotly.graph_objects as go
 from config import CREDENTIALS_FILE, SHEET_ID, SHEET_NAMES
@@ -19,6 +20,37 @@ def hide_streamlit_elements():
         </style>
     """
     st.markdown(hide_style, unsafe_allow_html=True)
+
+@st.cache_data(ttl=600, show_spinner=False)  # Cache for 10 minutes
+def load_and_process_data():
+    sheets_service = GoogleSheetsService()
+    dfs = {sheet_name: DataProcessor.create_dataframe(sheets_service.read_sheet(SHEET_ID, sheet_name)) 
+           for sheet_name in SHEET_NAMES}
+
+    members_df = dfs['01_Members']
+    monthly_collection_df = dfs['02_MonthlyCollection']
+    disbursement_df = dfs['03_Disbursement']
+    admin_costs_df = dfs['04_AdministrativeCosts']
+
+    # Process data
+    monthly_collection_df = DataProcessor.extract_month(monthly_collection_df, "Date")
+    monthly_collection_df = DataProcessor.convert_to_float(monthly_collection_df, ['AmountContributed', 'CommitmentFeePaid', 'AdminFeePaid'])
+    disbursement_df = DataProcessor.extract_month(disbursement_df, "Date")
+    disbursement_df = DataProcessor.convert_to_float(disbursement_df, ['AmountDisbursed'])
+    admin_costs_df = DataProcessor.extract_month(admin_costs_df, "Date")
+    admin_costs_df = DataProcessor.convert_to_float(admin_costs_df, ['AmountSpent'])
+
+    # Calculate metrics
+    operational_cash_flow = MetricsCalculator.calculate_operational_cash_flow(monthly_collection_df)
+    commitment_fee_analysis = MetricsCalculator.calculate_commitment_fee_analysis(monthly_collection_df, members_df)
+    total_contribution_analysis = MetricsCalculator.calculate_total_contribution_analysis(monthly_collection_df, members_df)
+    admin_fee_analysis = MetricsCalculator.calculate_admin_fee_analysis(monthly_collection_df, admin_costs_df)
+    disbursement_analysis = MetricsCalculator.calculate_disbursement_analysis(disbursement_df)
+    summary_metrics = MetricsCalculator.calculate_summary_metrics(monthly_collection_df, disbursement_df, admin_costs_df)
+
+    return (members_df, monthly_collection_df, disbursement_df, admin_costs_df,
+            operational_cash_flow, commitment_fee_analysis, total_contribution_analysis,
+            admin_fee_analysis, disbursement_analysis, summary_metrics)
 
 def main():
     st.set_page_config(layout="wide")
@@ -78,31 +110,13 @@ def main():
     # Use styled heading
     st.markdown("<h1>Growing Prospects Metrics Dashboard</h1>", unsafe_allow_html=True)
 
-    # Initialize services and load data
-    sheets_service = GoogleSheetsService()
-    dfs = {sheet_name: DataProcessor.create_dataframe(sheets_service.read_sheet(SHEET_ID, sheet_name)) 
-           for sheet_name in SHEET_NAMES}
+    # Load and process data (cached)
+    (members_df, monthly_collection_df, disbursement_df, admin_costs_df,
+     operational_cash_flow, commitment_fee_analysis, total_contribution_analysis,
+     admin_fee_analysis, disbursement_analysis, summary_metrics) = load_and_process_data()
 
-    members_df = dfs['01_Members']
-    monthly_collection_df = dfs['02_MonthlyCollection']
-    disbursement_df = dfs['03_Disbursement']
-    admin_costs_df = dfs['04_AdministrativeCosts']
-
-    # Process data
-    monthly_collection_df = DataProcessor.extract_month(monthly_collection_df, "Date")
-    monthly_collection_df = DataProcessor.convert_to_float(monthly_collection_df, ['AmountContributed', 'CommitmentFeePaid', 'AdminFeePaid'])
-    disbursement_df = DataProcessor.extract_month(disbursement_df, "Date")
-    disbursement_df = DataProcessor.convert_to_float(disbursement_df, ['AmountDisbursed'])
-    admin_costs_df = DataProcessor.extract_month(admin_costs_df, "Date")
-    admin_costs_df = DataProcessor.convert_to_float(admin_costs_df, ['AmountSpent'])
-
-    # Calculate metrics
-    operational_cash_flow = MetricsCalculator.calculate_operational_cash_flow(monthly_collection_df)
-    commitment_fee_analysis = MetricsCalculator.calculate_commitment_fee_analysis(monthly_collection_df, members_df)
-    total_contribution_analysis = MetricsCalculator.calculate_total_contribution_analysis(monthly_collection_df, members_df)
-    admin_fee_analysis = MetricsCalculator.calculate_admin_fee_analysis(monthly_collection_df, admin_costs_df)
-    disbursement_analysis = MetricsCalculator.calculate_disbursement_analysis(disbursement_df)
-    summary_metrics = MetricsCalculator.calculate_summary_metrics(monthly_collection_df, disbursement_df, admin_costs_df)
+    # Add this near the top of the main() function, after st.set_page_config()
+    count = st_autorefresh(interval=2000, limit=None, key="fizzbuzzcounter")
 
     # Display summary metrics
     st.header("Summary Metrics")
@@ -128,6 +142,26 @@ def main():
             """,
             unsafe_allow_html=True
         )
+
+    # Add this after the summary metrics section and before the "Financial Analysis" header
+    st.header("Spotlight Metrics")
+    carousel_metrics = [
+        {"label": "Total Members", "value": f"{len(members_df)}"},
+        {"label": "Average Contribution", "value": f"UGX {summary_metrics['Total Contributions'] / len(members_df):,.2f}"},
+        {"label": "Latest Month", "value": f"{operational_cash_flow['MonthName'].iloc[-1]}"},
+        {"label": "Active Contributors", "value": f"{monthly_collection_df['MemberID'].nunique()}"},
+    ]
+
+    current_metric = carousel_metrics[count % len(carousel_metrics)]
+    st.markdown(
+        f"""
+        <div style="background-color: #f0f0f0; padding: 20px; border-radius: 10px; text-align: center;">
+            <h3 style="margin-bottom: 10px;">{current_metric['label']}</h3>
+            <p style="font-size: 24px; font-weight: bold;">{current_metric['value']}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Display charts
     st.header("Financial Analysis")
@@ -162,14 +196,6 @@ def main():
     with tab4:
         fig_disbursement_pie = px.pie(disbursement_df, values='AmountDisbursed', names='MemberID', title='Disbursement by Beneficiary')
         st.plotly_chart(fig_disbursement_pie, use_container_width=True)
-
-    # Comment out the data tables section
-    # '''
-    # # Option to view tables
-    # st.header("Data Tables")
-    # table_option = st.selectbox("Select a table to view", list(dfs.keys()))
-    # st.dataframe(dfs[table_option])
-    # '''
 
     # Add navigation bar at the bottom
     st.markdown(
