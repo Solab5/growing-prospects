@@ -6,8 +6,25 @@ from google_sheets_service import GoogleSheetsService
 from data_processor import DataProcessor
 from metrics_calculator import MetricsCalculator
 
+def hide_streamlit_elements():
+    """Hide unnecessary Streamlit elements."""
+    hide_style = """
+        <style>
+        div[data-testid="stToolbar"], div[data-testid="stDecoration"], 
+        div[data-testid="stStatusWidget"], #MainMenu, header, footer {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
+        }
+        </style>
+    """
+    st.markdown(hide_style, unsafe_allow_html=True)
+
 def main():
     st.set_page_config(layout="wide")
+  
+    # Hide Streamlit elements
+    hide_streamlit_elements()
   
     # Add custom font and styles
     st.markdown(
