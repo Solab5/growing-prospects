@@ -21,7 +21,7 @@ def hide_streamlit_elements():
     """
     st.markdown(hide_style, unsafe_allow_html=True)
 
-@st.cache_data(ttl=600, show_spinner=False)  # Cache for 10 minutes
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
 def load_and_process_data():
     sheets_service = GoogleSheetsService()
     dfs = {sheet_name: DataProcessor.create_dataframe(sheets_service.read_sheet(SHEET_ID, sheet_name)) 
