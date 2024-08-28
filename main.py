@@ -53,7 +53,11 @@ def load_and_process_data():
             admin_fee_analysis, disbursement_analysis, summary_metrics)
 
 def main():
-    st.set_page_config(layout="wide")
+    st.set_page_config(
+        page_title="Growing Prospects Metrics Dashboard",
+        page_icon="🏦",
+        layout="wide"
+    )
   
     # Hide Streamlit elements
     hide_streamlit_elements()
