@@ -54,7 +54,7 @@ def load_and_process_data():
 
 def main():
     st.set_page_config(
-        page_title="Growing Prospects Metrics Dashboard",
+        page_title="Growing Prospects Metrics",
         page_icon="🏦",
         layout="wide"
     )
