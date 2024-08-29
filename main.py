@@ -21,7 +21,7 @@ def hide_streamlit_elements():
     """
     st.markdown(hide_style, unsafe_allow_html=True)
 
-@st.cache_data(ttl=60, show_spinner=False)  # Cache for 5 minutes
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
 def load_and_process_data():
     sheets_service = GoogleSheetsService()
     dfs = {sheet_name: DataProcessor.create_dataframe(sheets_service.read_sheet(SHEET_ID, sheet_name)) 
@@ -35,6 +35,7 @@ def load_and_process_data():
     # Process data
     monthly_collection_df = DataProcessor.extract_month(monthly_collection_df, "Date")
     monthly_collection_df = DataProcessor.convert_to_float(monthly_collection_df, ['AmountContributed', 'CommitmentFeePaid', 'AdminFeePaid'])
+    monthly_collection_df = DataProcessor.convert_to_int(monthly_collection_df, ['CollectionID'])
     disbursement_df = DataProcessor.extract_month(disbursement_df, "Date")
     disbursement_df = DataProcessor.convert_to_float(disbursement_df, ['AmountDisbursed'])
     admin_costs_df = DataProcessor.extract_month(admin_costs_df, "Date")
@@ -169,7 +170,7 @@ def main():
 
     # Display charts
     st.header("Financial Analysis")
-    tab1, tab2, tab3, tab4 = st.tabs(["Cash Flow", "Member Analysis", "Admin Fee", "Disbursements"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Cash Flow", "Member Analysis", "Admin Fee", "Disbursements", "Data Entry"])
 
     with tab1:
         col1, col2 = st.columns(2)
@@ -200,6 +201,95 @@ def main():
     with tab4:
         fig_disbursement_pie = px.pie(disbursement_df, values='AmountDisbursed', names='MemberID', title='Disbursement by Beneficiary')
         st.plotly_chart(fig_disbursement_pie, use_container_width=True)
+
+    with tab5:
+        # Center the "Data Entry Forms" heading
+        st.markdown("<h2 style='text-align: center;'>Data Entry Forms</h2>", unsafe_allow_html=True)
+        
+        # Create a centered column with reduced width
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:  # Use the middle column for the form
+            form_type = st.selectbox("Select form type", ["Monthly Collection", "Disbursement", "Administrative Costs"])
+            
+            if form_type == "Monthly Collection":
+                form_container = st.empty()
+                success_message = st.empty()
+                
+                with form_container.form("monthly_collection_form", clear_on_submit=True):
+                    # Get the last collection ID and increment it
+                    last_collection_id = monthly_collection_df['CollectionID'].max() if not monthly_collection_df.empty else 0
+                    new_collection_id = int(last_collection_id) + 1
+                    st.write(f"Collection ID: {new_collection_id}")
+
+                    member_id = st.selectbox("Member ID", members_df['MemberID'].unique())
+                    date = st.date_input("Date")
+                    amount_contributed = st.number_input("Amount Contributed", min_value=0)
+                    is_commitment_fee_included = st.selectbox("Is Commitment Fee Included?", [False, True])
+                    is_admin_fee_included = st.selectbox("Is Admin Fee Included?", [False, True])
+                    commitment_fee_paid = st.number_input("Commitment Fee Paid", min_value=0.0)
+                    admin_fee_paid = st.number_input("Admin Fee Paid", min_value=0)
+                    
+                    submitted = st.form_submit_button("Submit")
+                    if submitted:
+                        data = [
+                            new_collection_id,
+                            member_id,
+                            date.strftime("%Y-%m-%d"),
+                            amount_contributed,
+                            is_commitment_fee_included,
+                            is_admin_fee_included,
+                            commitment_fee_paid,
+                            admin_fee_paid
+                        ]
+                        sheets_service = GoogleSheetsService()
+                        result = sheets_service.update_sheet(SHEET_ID, "02_MonthlyCollection", data)
+                        if result:
+                            st.write("Data submitted successfully!")
+                        else:
+                            st.error("Failed to submit data. Please try again.")
+
+            elif form_type == "Disbursement":
+                form_container = st.empty()
+                success_message = st.empty()
+                
+                with form_container.form("disbursement_form"):
+                    member_id = st.selectbox("Member ID", members_df['MemberID'].unique())
+                    date = st.date_input("Date")
+                    amount_disbursed = st.number_input("Amount Disbursed", min_value=0.0)
+                    
+                    submitted = st.form_submit_button("Submit")
+                    if submitted:
+                        data = [member_id, date.strftime("%Y-%m-%d"), amount_disbursed]
+                        sheets_service = GoogleSheetsService()
+                        result = sheets_service.update_sheet(SHEET_ID, "03_Disbursement", data)
+                        if result:
+                            form_container.empty()  # Clear the form
+                            success_message.success("Data submitted successfully!")
+                            st.experimental_rerun()  # Rerun the app to refresh the data
+                        else:
+                            st.error("Failed to submit data. Please try again.")
+            
+            elif form_type == "Administrative Costs":
+                form_container = st.empty()
+                success_message = st.empty()
+                
+                with form_container.form("admin_costs_form"):
+                    date = st.date_input("Date")
+                    description = st.text_input("Description")
+                    amount_spent = st.number_input("Amount Spent", min_value=0.0)
+                    
+                    submitted = st.form_submit_button("Submit")
+                    if submitted:
+                        data = [date.strftime("%Y-%m-%d"), description, amount_spent]
+                        sheets_service = GoogleSheetsService()
+                        result = sheets_service.update_sheet(SHEET_ID, "04_AdministrativeCosts", data)
+                        if result:
+                            form_container.empty()  # Clear the form
+                            success_message.success("Data submitted successfully!")
+                            st.experimental_rerun()  # Rerun the app to refresh the data
+                        else:
+                            st.error("Failed to submit data. Please try again.")
 
     # Add navigation bar at the bottom
     st.markdown(

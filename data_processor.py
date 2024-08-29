@@ -19,3 +19,9 @@ class DataProcessor:
         for col in columns:
             df[col] = df[col].astype(float)
         return df
+
+    @staticmethod
+    def convert_to_int(df, columns):
+        for col in columns:
+            df[col] = df[col].fillna(0).astype(int)
+        return df
