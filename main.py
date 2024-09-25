@@ -40,6 +40,10 @@ def load_and_process_data():
     admin_costs_df = DataProcessor.extract_month(admin_costs_df, "Date")
     admin_costs_df = DataProcessor.convert_to_float(admin_costs_df, ['AmountSpent'])
 
+    # Merge member names
+    monthly_collection_df = monthly_collection_df.merge(members_df[['MemberID', 'Name']], on='MemberID', how='left')
+    disbursement_df = disbursement_df.merge(members_df[['MemberID', 'Name']], on='MemberID', how='left')
+
     # Calculate metrics
     operational_cash_flow = MetricsCalculator.calculate_operational_cash_flow(monthly_collection_df)
     commitment_fee_analysis = MetricsCalculator.calculate_commitment_fee_analysis(monthly_collection_df, members_df)
@@ -198,7 +202,7 @@ def main():
         st.plotly_chart(fig_admin, use_container_width=True)
 
     with tab4:
-        fig_disbursement_pie = px.pie(disbursement_df, values='AmountDisbursed', names='MemberID', title='Disbursement by Beneficiary')
+        fig_disbursement_pie = px.pie(disbursement_df, values='AmountDisbursed', names='Name', title='Disbursement by Beneficiary')
         st.plotly_chart(fig_disbursement_pie, use_container_width=True)
 
     # Add navigation bar at the bottom
