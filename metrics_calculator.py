@@ -10,7 +10,7 @@ class MetricsCalculator:
 
     @staticmethod
     def calculate_total_contribution_analysis(monthly_df, members_df):
-        monthly_df['TotalContribution'] = monthly_df['AmountContributed'] + monthly_df['CommitmentFeePaid']
+        monthly_df['TotalContribution'] = monthly_df['AmountContributed'] ##+ monthly_df['CommitmentFeePaid']
         analysis = monthly_df.groupby('MemberID')['TotalContribution'].sum().reset_index()
         return analysis.merge(members_df, on='MemberID')
 
